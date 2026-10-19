@@ -1,0 +1,1166 @@
+{
+  "name": "BayGuard — Telegram booking + waitlist (configure before use)",
+  "nodes": [
+    {
+      "id": "bg_live_1",
+      "name": "Telegram — messages and buttons",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        180
+      ],
+      "parameters": {
+        "updates": [
+          "message",
+          "callback_query"
+        ],
+        "additionalFields": {
+          "userIds": "0",
+          "chatIds": "0"
+        }
+      },
+      "webhookId": "bayguard-private-telegram-v1",
+      "notes": "Receives authenticated Telegram messages and callback_query updates. Native chat/user restrictions limit this private prototype to its owner.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_2",
+      "name": "Manual — storage smoke test",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -20
+      ],
+      "parameters": {},
+      "notes": "Starts a synthetic persistence-only check. It is not a replacement for a real Telegram end-to-end test.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_3",
+      "name": "Every minute — expire offers",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        420
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 1
+            }
+          ]
+        }
+      },
+      "disabled": true,
+      "notes": "Scheduled sweep for due holds and newly eligible cancelled windows. Temporarily enabled only for approved private expiry QA; otherwise disabled in this handoff.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_4",
+      "name": "Telegram identity",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        180
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "source",
+              "name": "source",
+              "value": "telegram",
+              "type": "string"
+            },
+            {
+              "id": "userId",
+              "name": "userId",
+              "value": "={{ String($json.callback_query?.from?.id ?? $json.message?.from?.id ?? \"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "chatId",
+              "name": "chatId",
+              "value": "={{ String($json.callback_query?.message?.chat?.id ?? $json.message?.chat?.id ?? \"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "privateChat",
+              "name": "privateChat",
+              "value": "={{ ($json.callback_query?.message?.chat?.type ?? $json.message?.chat?.type) === \"private\" }}",
+              "type": "boolean"
+            },
+            {
+              "id": "command",
+              "name": "command",
+              "value": "={{ $json.callback_query?.data ?? $json.message?.text ?? \"\" }}",
+              "type": "string"
+            },
+            {
+              "id": "callbackId",
+              "name": "callbackId",
+              "value": "={{ String($json.callback_query?.id ?? \"\") }}",
+              "type": "string"
+            },
+            {
+              "id": "eventId",
+              "name": "eventId",
+              "value": "={{ \"tg_\" + String($json.update_id) }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "notes": "Maps sender ID, private chat ID, command, callback ID and Telegram update ID. Identity never comes from user message text.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_5",
+      "name": "Synthetic event — NO messages",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        -20
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "source",
+              "name": "source",
+              "value": "test",
+              "type": "string"
+            },
+            {
+              "id": "userId",
+              "name": "userId",
+              "value": "10001",
+              "type": "string"
+            },
+            {
+              "id": "chatId",
+              "name": "chatId",
+              "value": "10001",
+              "type": "string"
+            },
+            {
+              "id": "privateChat",
+              "name": "privateChat",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "command",
+              "name": "command",
+              "value": "probe",
+              "type": "string"
+            },
+            {
+              "id": "callbackId",
+              "name": "callbackId",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "eventId",
+              "name": "eventId",
+              "value": "={{ \"probe_\" + $execution.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "notes": "Builds a synthetic sender and unique probe event. This branch is restored to storage-only mode after transport QA.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_6",
+      "name": "Trusted expiry event",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        200,
+        420
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "source",
+              "name": "source",
+              "value": "timer",
+              "type": "string"
+            },
+            {
+              "id": "userId",
+              "name": "userId",
+              "value": "0",
+              "type": "string"
+            },
+            {
+              "id": "chatId",
+              "name": "chatId",
+              "value": "0",
+              "type": "string"
+            },
+            {
+              "id": "privateChat",
+              "name": "privateChat",
+              "value": true,
+              "type": "boolean"
+            },
+            {
+              "id": "command",
+              "name": "command",
+              "value": "sweep",
+              "type": "string"
+            },
+            {
+              "id": "callbackId",
+              "name": "callbackId",
+              "value": "",
+              "type": "string"
+            },
+            {
+              "id": "eventId",
+              "name": "eventId",
+              "value": "={{ \"timer_\" + $execution.id }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "notes": "Builds a server-owned timer event. End users cannot grant themselves the internal scheduler role through Telegram text.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_7",
+      "name": "Private test settings",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        180
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "allowedUserId",
+              "name": "allowedUserId",
+              "value": "0",
+              "type": "string"
+            },
+            {
+              "id": "deliveryEnabled",
+              "name": "deliveryEnabled",
+              "value": false,
+              "type": "boolean"
+            },
+            {
+              "id": "offerMinutes",
+              "name": "offerMinutes",
+              "value": 10,
+              "type": "number"
+            },
+            {
+              "id": "now",
+              "name": "now",
+              "value": "={{ $now.toUTC().toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "notes": "Defines the owner allowlist, delivery switch, server timestamp and offer lifetime. One-minute TTL is used only for explicitly approved accelerated QA; the normal setting is ten minutes.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_8",
+      "name": "Private tester only",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        600,
+        180
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Private tester only",
+              "leftValue": "={{ $json.source === \"test\" || ($json.userId === $json.allowedUserId && $json.chatId === $json.allowedUserId && $json.privateChat === true) }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "notes": "Rejects non-owner or non-private requests before reading or changing appointment state. Trusted manual storage tests use a separate synthetic branch.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_9",
+      "name": "Read appointment state",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        800,
+        180
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_DATA_TABLE_ID",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "scope",
+              "condition": "eq",
+              "keyValue": "bayguard_demo"
+            }
+          ]
+        },
+        "returnAll": false,
+        "limit": 2
+      },
+      "alwaysOutputData": true,
+      "notes": "Reads exactly one scoped prototype row from the native n8n Data table. Missing or duplicate state rows fail closed.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_10",
+      "name": "Button needs acknowledgement",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        600,
+        420
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Button needs acknowledgement",
+              "leftValue": "={{ $json.source === \"telegram\" && $json.callbackId !== \"\" && $json.deliveryEnabled === true }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "notes": "Detects real inline callbacks requiring an answerQuery acknowledgement. Ordinary text and synthetic events skip it.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_11",
+      "name": "Telegram — acknowledge button",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        800,
+        420
+      ],
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerQuery",
+        "queryId": "={{ $json.callbackId }}",
+        "additionalFields": {}
+      },
+      "onError": "continueRegularOutput",
+      "notes": "Answers the inline callback to dismiss Telegram loading feedback. An acknowledgement failure is not a booking decision.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_12",
+      "name": "Availability + booking rules",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1000,
+        180
+      ],
+      "parameters": {
+        "jsCode": "// BAYGUARD 1.0. Pure reservation kernel; persistence and channel identity are adapters.\n// A successful in-memory transition is NOT a durable booking until CAS commit succeeds.\nconst VERSION = 'bayguard-1.0.0';\nconst clone = x => JSON.parse(JSON.stringify(x));\nconst canonical = x => Array.isArray(x) ? `[${x.map(canonical).join(',')}]` : x && typeof x === 'object' ? `{${Object.keys(x).sort().map(k=>JSON.stringify(k)+':'+canonical(x[k])).join(',')}}` : JSON.stringify(x);\nconst overlaps = (a,b) => a.startMs < b.endMs && b.startMs < a.endMs;\nfunction requireValue(ok, code) { if (!ok) throw new Error(code); }\nfunction id(x) { return typeof x==='string' && /^[A-Za-z0-9_-]{1,80}$/.test(x); }\nfunction instant(x) { requireValue(typeof x==='string' && /^\\d{4}-\\d\\d-\\d\\dT\\d\\d:\\d\\d:\\d\\d(?:\\.\\d{3})?Z$/.test(x), 'UTC_ISO_REQUIRED'); const n=Date.parse(x); requireValue(Number.isFinite(n),'INVALID_TIME'); return n; }\nfunction seed() {\n  return {version:VERSION, config:{timezone:'Asia/Dubai',utcOffsetHours:4,openHour:9,closeHour:21,offerMinutes:10,maxHorizonDays:30},\n    services:{wash:{minutes:60,priceAed:150,capability:'wet'},interior:{minutes:90,priceAed:350,capability:'detail'},ceramic:{minutes:180,priceAed:1200,capability:'detail'}},\n    bays:[{id:'wet_A',capabilities:['wet']},{id:'detail_B',capabilities:['detail']}],\n    bookings:[],waitlist:[],offers:[],processed:[],audit:[]};\n}\nfunction interval(s,serviceId,startIso,now) {\n  const svc=s.services[serviceId]; requireValue(!!svc,'UNKNOWN_SERVICE');\n  const startMs=instant(startIso),endMs=startMs+svc.minutes*60000;\n  requireValue(startMs>now,'PAST_SLOT'); requireValue(startMs-now<=s.config.maxHorizonDays*86400000,'OUTSIDE_HORIZON');\n  const a=new Date(startMs+s.config.utcOffsetHours*3600000),b=new Date(endMs+s.config.utcOffsetHours*3600000);\n  const mins=a.getUTCHours()*60+a.getUTCMinutes(),endMins=b.getUTCHours()*60+b.getUTCMinutes();\n  requireValue(a.toISOString().slice(0,10)===b.toISOString().slice(0,10) && mins>=s.config.openHour*60 && endMins<=s.config.closeHour*60,'OUTSIDE_OPEN_HOURS');\n  requireValue(a.getUTCSeconds()===0 && a.getUTCMilliseconds()===0,'MINUTE_BOUNDARY_REQUIRED');\n  return {startMs,endMs};\n}\nfunction activeBookings(s) { return s.bookings.filter(b=>['held','confirmed'].includes(b.status)); }\nfunction freeBay(s,serviceId,range) {\n  const cap=s.services[serviceId].capability;\n  return s.bays.find(b=>b.capabilities.includes(cap) && !activeBookings(s).some(x=>x.bayId===b.id&&overlaps(x,range)));\n}\nfunction expire(s,now) {\n  for(const offer of s.offers.filter(o=>o.status==='offered' && o.expiresMs<=now)) {\n    offer.status='expired'; const b=s.bookings.find(x=>x.id===offer.holdId); if(b?.status==='held') b.status='expired';\n    const w=s.waitlist.find(x=>x.id===offer.waitlistId); if(w?.status==='offered') w.status='waiting';\n  }\n}\nfunction snapshotInvariant(s) {\n  const bs=activeBookings(s);\n  for(let i=0;i<bs.length;i++) for(let j=i+1;j<bs.length;j++) requireValue(!(bs[i].bayId===bs[j].bayId&&overlaps(bs[i],bs[j])),'CAPACITY_INVARIANT');\n  requireValue(new Set(s.bookings.map(b=>b.id)).size===s.bookings.length,'DUPLICATE_BOOKING_ID');\n  for(const b of bs) requireValue(!!s.bays.find(x=>x.id===b.bayId&&x.capabilities.includes(s.services[b.serviceId]?.capability)),'CAPABILITY_INVARIANT');\n}\nfunction transition(original,event) {\n  let s=clone(original);\n  try {\n    requireValue(s.version===VERSION,'SCHEMA_VERSION_MISMATCH');\n    requireValue(event && id(event.id) && id(event.actor?.id),'INVALID_EVENT');\n    requireValue(['customer','staff','timer'].includes(event.actor.role),'INVALID_ACTOR');\n    const fingerprint=canonical({id:event.id,type:event.type,actor:event.actor,data:event.data||{}}), previous=s.processed.find(x=>x.id===event.id);\n    if(previous) { requireValue(previous.fingerprint===fingerprint,'IDEMPOTENCY_CONFLICT'); return {state:s,result:{...clone(previous.result),replayed:true},notifications:[]}; }\n    requireValue(s.processed.length<5000,'STATE_RETENTION_REQUIRED');\n    const now=instant(event.now); expire(s,now);\n    const d=event.data||{},notifications=[]; let result={ok:true,code:'OK',replayed:false};\n    const customer=()=>requireValue(event.actor.role==='customer','CUSTOMER_ONLY');\n    const internal=()=>requireValue(['staff','timer'].includes(event.actor.role),'STAFF_OR_TIMER_ONLY');\n    const notify=(to,text,offerId)=>notifications.push({key:event.id+'_'+notifications.length,to,text,...(offerId?{offerId}:{})});\n    switch(event.type) {\n      case 'reserve': {\n        customer(); const range=interval(s,d.serviceId,d.start,now),bay=freeBay(s,d.serviceId,range);\n        requireValue(!activeBookings(s).some(b=>b.customerId===event.actor.id&&overlaps(b,range)),'CUSTOMER_ALREADY_BOOKED');\n        requireValue(!!bay,'NO_CAPACITY');\n        const booking={id:'bk_'+event.id,customerId:event.actor.id,serviceId:d.serviceId,bayId:bay.id,...range,status:'confirmed',origin:'direct',quotedAed:s.services[d.serviceId].priceAed};\n        s.bookings.push(booking); result={...result,code:'BOOKED',bookingId:booking.id}; notify(event.actor.id,'Appointment confirmed. Payment is not processed by this bot.'); break;\n      }\n      case 'join_waitlist': {\n        customer(); requireValue(d.consent===true,'CONSENT_REQUIRED');\n        const range=interval(s,d.serviceId,d.earliest,now),latestMs=instant(d.latest);\n        requireValue(latestMs>=range.endMs && latestMs-range.startMs<=86400000,'INVALID_AVAILABILITY');\n        requireValue(!s.waitlist.some(w=>w.customerId===event.actor.id&&w.serviceId===d.serviceId&&['waiting','offered'].includes(w.status)),'ALREADY_WAITLISTED');\n        const w={id:'wl_'+event.id,customerId:event.actor.id,serviceId:d.serviceId,earliestMs:range.startMs,latestMs,joinedMs:now,consent:true,status:'waiting'};\n        s.waitlist.push(w); result={...result,code:'WAITLISTED',waitlistId:w.id}; break;\n      }\n      case 'cancel': {\n        customer(); const b=s.bookings.find(x=>x.id===d.bookingId);\n        requireValue(!!b&&b.customerId===event.actor.id,'BOOKING_NOT_OWNED');\n        requireValue(b.status==='confirmed','NOT_CANCELLABLE'); requireValue(b.startMs>now,'CANCELLATION_TOO_LATE');\n        b.status='cancelled'; result={...result,code:'CANCELLED',bookingId:b.id}; notify(event.actor.id,'Cancelled. Any payment/refund is handled by the studio.'); break;\n      }\n      case 'offer_next': {\n        internal(); const source=s.bookings.find(x=>x.id===d.cancelledBookingId&&x.status==='cancelled');\n        requireValue(!!source,'CANCELLED_WINDOW_REQUIRED'); requireValue(source.startMs>now,'WINDOW_PASSED');\n        requireValue(!s.offers.some(o=>o.sourceId===source.id&&['offered','claimed'].includes(o.status)),'WINDOW_ALREADY_ALLOCATED');\n        const history=new Set(s.offers.filter(o=>o.sourceId===source.id).map(o=>o.customerId));\n        const candidates=s.waitlist.filter(w=>w.status==='waiting'&&w.consent&&!history.has(w.customerId)).sort((a,b)=>a.joinedMs-b.joinedMs||a.id.localeCompare(b.id));\n        let selected,range,bay;\n        for(const w of candidates) {\n          const endMs=source.startMs+s.services[w.serviceId].minutes*60000;\n          const r={startMs:source.startMs,endMs};\n          if(w.earliestMs<=r.startMs && w.latestMs>=r.endMs && endMs<=source.endMs && !activeBookings(s).some(b=>b.customerId===w.customerId&&overlaps(b,r))) {\n            const b=s.bays.find(b=>b.id===source.bayId&&b.capabilities.includes(s.services[w.serviceId].capability)&&!activeBookings(s).some(x=>x.bayId===b.id&&overlaps(x,r)));\n            if(b) {selected=w;range=r;bay=b;break;}\n          }\n        }\n        if(!selected) {result={...result,code:'NO_ELIGIBLE_WAITLIST'};break;}\n        const holdId='hold_'+event.id,offerId='offer_'+event.id;\n        s.bookings.push({id:holdId,customerId:selected.customerId,serviceId:selected.serviceId,bayId:bay.id,...range,status:'held',origin:'waitlist',sourceId:source.id,quotedAed:s.services[selected.serviceId].priceAed});\n        const expiresMs=Math.min(now+s.config.offerMinutes*60000,source.startMs);\n        s.offers.push({id:offerId,sourceId:source.id,waitlistId:selected.id,customerId:selected.customerId,holdId,status:'offered',expiresMs}); selected.status='offered';\n        result={...result,code:'OFFERED',offerId,customerId:selected.customerId,expiresAt:new Date(expiresMs).toISOString()};\n        notify(selected.customerId,'A compatible appointment is held for up to 10 minutes. Accept or decline; price is a quote, not money received.',offerId); break;\n      }\n      case 'claim_offer': {\n        customer(); const o=s.offers.find(x=>x.id===d.offerId);\n        requireValue(!!o&&o.customerId===event.actor.id,'OFFER_NOT_OWNED'); requireValue(o.status==='offered'&&o.expiresMs>now,'OFFER_NOT_ACTIVE');\n        const b=s.bookings.find(x=>x.id===o.holdId); requireValue(b?.status==='held','HOLD_NOT_ACTIVE');\n        o.status='claimed'; b.status='confirmed'; s.waitlist.find(x=>x.id===o.waitlistId).status='booked';\n        result={...result,code:'RECOVERED_BOOKING',bookingId:b.id,quotedAed:b.quotedAed}; notify(event.actor.id,'Your replacement appointment is confirmed. No payment has been collected.'); break;\n      }\n      case 'decline_offer': {\n        customer(); const o=s.offers.find(x=>x.id===d.offerId);\n        requireValue(!!o&&o.customerId===event.actor.id,'OFFER_NOT_OWNED'); requireValue(o.status==='offered','OFFER_NOT_ACTIVE');\n        o.status='declined'; s.bookings.find(x=>x.id===o.holdId).status='declined'; s.waitlist.find(x=>x.id===o.waitlistId).status='waiting';\n        result={...result,code:'DECLINED'}; break;\n      }\n      case 'withdraw_consent': {\n        customer(); for(const w of s.waitlist.filter(x=>x.customerId===event.actor.id)) {w.consent=false;w.status='withdrawn';}\n        for(const o of s.offers.filter(x=>x.customerId===event.actor.id&&x.status==='offered')) {o.status='withdrawn';const b=s.bookings.find(x=>x.id===o.holdId);if(b?.status==='held')b.status='withdrawn';}\n        result={...result,code:'CONSENT_WITHDRAWN'};break;\n      }\n      case 'tick': internal(); result={...result,code:'EXPIRY_CHECKED'};break;\n      case 'record_payment': throw new Error('PAYMENT_ADAPTER_NOT_CONNECTED');\n      default: throw new Error('UNKNOWN_EVENT_TYPE');\n    }\n    snapshotInvariant(s);\n    s.audit.push({eventId:event.id,type:event.type,actorId:event.actor.id,code:result.code,at:event.now});\n    s.processed.push({id:event.id,fingerprint,result:clone(result)});\n    return {state:s,result,notifications};\n  } catch(error) {return {state:clone(original),result:{ok:false,code:error.message,replayed:false},notifications:[]};}\n}\nfunction metrics(s) {\n  const recovered=s.bookings.filter(b=>b.origin==='waitlist'&&b.status==='confirmed');\n  return {confirmedRecoveredAppointments:recovered.length,quotedRecoveredBookingValueAed:recovered.reduce((n,b)=>n+b.quotedAed,0),cashReceivedAed:null,cashStatus:'No payment integration; quote value is NOT revenue',basis:'Synthetic test records unless a verified production source is connected'};\n}\nfunction economicScenario(input) {\n  const {monthlyAppointments,cancelRate,eligibleShare,fillRate,averageTicketAed,variableCostAed,monthlyOpsAed,manualRequests,manualMinutes,automatedMinutes,loadedHourlyCostAed}=input;\n  for(const k of Object.keys(input)) requireValue(Number.isFinite(input[k])&&input[k]>=0,'INVALID_SCENARIO');\n  for(const k of ['cancelRate','eligibleShare','fillRate']) requireValue(input[k]<=1,'INVALID_RATE');\n  requireValue(variableCostAed<=averageTicketAed && automatedMinutes<=manualMinutes,'INVALID_UNIT_ECONOMICS');\n  const expectedRecovered=monthlyAppointments*cancelRate*eligibleShare*fillRate;\n  const savedHours=manualRequests*(manualMinutes-automatedMinutes)/60;\n  return {basis:'Illustrative assumptions, NOT measured client results',expectedRecoveredAppointments:expectedRecovered,modeledBookingValueAed:expectedRecovered*averageTicketAed,modeledContributionAfterOpsAed:expectedRecovered*(averageTicketAed-variableCostAed)-monthlyOpsAed,modeledFreedAdminHours:savedHours,modeledLaborCapacityValueAed:savedHours*loadedHourlyCostAed,laborCashSavingAed:null,doNotAddLaborValueToCashProfit:true};\n}\n\n// Channel adapter. Sender identity comes from Telegram Trigger, never message text.\n// Transport is deliberately outside this module: native Data table and Telegram nodes.\nfunction handleBot(original, ctx) {\n  let s=JSON.parse(JSON.stringify(original));\n  const now=Date.parse(ctx.now), uid=String(ctx.userId), key=String(ctx.eventId);\n  if(!Number.isFinite(now)||!/^\\d+$/.test(uid)||!/^[A-Za-z0-9_-]{1,60}$/.test(key)) throw new Error('INVALID_CONTEXT');\n  if(ctx.offerMinutes!==undefined){\n    if(![1,10].includes(ctx.offerMinutes))throw new Error('INVALID_PRIVATE_TEST_TTL');\n    s.config.offerMinutes=ctx.offerMinutes;\n  }\n  const b=(text,data)=>({text,additionalFields:{callback_data:data}});\n  const kb=rows=>({rows:rows.map(buttons=>({row:{buttons}}))});\n  const menu=kb([[b('Book a service','services')],[b('My appointments','mine'),b('Stop waitlist offers','stop')]]);\n  const messages=[];\n  const msg=(text,keyboard=menu,to=uid)=>messages.push({chatId:String(to),text,keyboard});\n  const display=ms=>new Date(ms+4*3600000).toISOString().slice(0,16).replace('T',' ')+' Dubai';\n  const names={wash:'Exterior wash',interior:'Interior detail',ceramic:'Ceramic treatment'};\n  const event=(suffix,type,data={},role='customer',actor=uid)=>({id:key+'_'+suffix,type,actor:{id:actor,role},now:ctx.now,data});\n  const apply=e=>{const r=transition(s,e);s=r.state;return r;};\n  // Do not write one ledger entry per idle minute. Only persist a sweep that can\n  // expire a live hold or offer a compatible opening. The pure preview has no effects.\n  if(ctx.source==='timer'){\n    const expiryDue=s.offers.some(o=>o.status==='offered'&&o.expiresMs<=now);\n    const offerDue=s.bookings.filter(x=>x.status==='cancelled'&&x.startMs>now).some(source=>transition(s,event('preview','offer_next',{cancelledBookingId:source.id},'timer','scheduler')).result.code==='OFFERED');\n    if(!expiryDue&&!offerDue)return {state:s,messages:[],code:'IDLE_NO_WRITE',replayed:false,noChange:true};\n  }\n  s.handledUpdates=s.handledUpdates||[];\n  s.uiPages=(s.uiPages||[]).filter(p=>p.expiresMs>now).slice(-20);\n  if(s.handledUpdates.includes(key)) return {state:s,messages:[],code:'DUPLICATE_UPDATE',replayed:true};\n  if(s.handledUpdates.length>=3000) throw new Error('ADAPTER_RETENTION_REQUIRED');\n  apply(event('expiry','tick',{},'timer','scheduler'));\n  let code='MENU';\n  const replyResult=r=>{\n    code=r.result.code;\n    if(!r.result.ok){\n      const errors={NO_CAPACITY:'That slot has just been taken. Please choose another time or join the waitlist.',OFFER_NOT_ACTIVE:'This offer has expired or was already handled.',ALREADY_WAITLISTED:'You are already on the waitlist for this service.',BOOKING_NOT_OWNED:'This appointment does not belong to you.',NOT_CANCELLABLE:'This appointment is no longer cancellable.',CUSTOMER_ALREADY_BOOKED:'You already have an appointment at this time.'};\n      msg(errors[code]||'I could not complete that action ('+code+'). Please refresh the menu.');\n      return;\n    }\n    if(code==='BOOKED'||code==='RECOVERED_BOOKING'){\n      const booking=s.bookings.find(x=>x.id===r.result.bookingId);\n      msg('Appointment confirmed\\n'+names[booking.serviceId]+'\\n'+display(booking.startMs)+'\\nQuote: AED '+booking.quotedAed+'\\nPayment is handled by the studio.',kb([[b('My appointments','mine')],[b('Main menu','menu')]]));\n    } else if(code==='WAITLISTED') msg('You are on the waitlist. We will send only matching openings on your selected day. Each offer is reserved for up to 10 minutes. You can stop offers at any time.');\n    else if(code==='CANCELLED') msg('Appointment cancelled. If a matching customer opted in, the released window will be offered to them privately. Payment/refund questions go to the studio.');\n    else if(code==='DECLINED') msg('Offer declined. You remain on the waitlist.');\n    else if(code==='CONSENT_WITHDRAWN')msg('Waitlist offers stopped. Existing confirmed appointments are unchanged.');\n  };\n  const offerOpenWindows=()=>{\n    let index=0;\n    for(const source of s.bookings.filter(x=>x.status==='cancelled'&&x.startMs>now)){\n      const r=apply(event('offer_'+index++,'offer_next',{cancelledBookingId:source.id},'timer','scheduler'));\n      if(r.result.code==='OFFERED'){\n        const offer=s.offers.find(x=>x.id===r.result.offerId),hold=s.bookings.find(x=>x.id===offer.holdId);\n        msg('An opening matches your waitlist request\\n'+names[hold.serviceId]+'\\n'+display(hold.startMs)+'\\nQuote: AED '+hold.quotedAed+'\\nReserved until '+display(offer.expiresMs)+'. No payment is collected by the bot.',kb([[b('Accept opening','accept:'+offer.id),b('Decline','decline:'+offer.id)],[b('Stop offers','stop')]]),offer.customerId);\n      }\n    }\n  };\n  const command=String(ctx.command||'').trim();\n  const [action,a,c]=command.split(':');\n  if(ctx.source==='timer') {code='SWEEP';offerOpenWindows();}\n  else if(ctx.source==='test') {code='STORAGE_PROBE';s.adapterProbe={eventId:key,at:ctx.now};}\n  else if(action==='page'){\n    const page=s.uiPages.find(p=>p.id===a&&p.owner===uid),pageIndex=Number(c);\n    if(!page||!Number.isInteger(pageIndex)||pageIndex<0||pageIndex*2>=page.buttons.length)msg('This menu has expired. Please choose a service again.');\n    else {\n      const buttons=page.buttons.slice(pageIndex*2,pageIndex*2+2);\n      while(buttons.length<2)buttons.push(b('Main menu','menu'));\n      buttons.push(pageIndex>0?b('Previous','page:'+a+':'+(pageIndex-1)):b('Main menu','menu'));\n      buttons.push((pageIndex+1)*2<page.buttons.length?b('Next options','page:'+a+':'+(pageIndex+1)):b('My appointments','mine'));\n      msg(page.text+'\\nOptions '+(pageIndex+1)+'/'+Math.ceil(page.buttons.length/2),kb([buttons]));\n    }\n  }\n  else if(['/start','/menu','menu',''].includes(command)) msg('BAYGUARD\\nDetailing appointments, without the back-and-forth.\\nChoose a service, pick an available time, or recover a cancelled opening through the opt-in waitlist.\\nAll times are Dubai (UTC+4).');\n  else if(command==='services') msg('Choose your service. Prices below are prototype configuration, not a live studio offer.',kb(Object.keys(names).map(id=>[b(names[id]+' · '+s.services[id].minutes+' min · AED '+s.services[id].priceAed,'svc:'+id)]).concat([[b('Main menu','menu')]])));\n  else if(action==='svc'&&s.services[a]){\n    const day=new Date(now+4*3600000+86400000).toISOString().slice(0,10);\n    const start=Date.parse(day+'T05:00:00Z');\n    const slots=[];\n    for(let t=start;t<=start+12*3600000&&slots.length<6;t+=30*60000){\n      const r=transition(s,event('preview','reserve',{serviceId:a,start:new Date(t).toISOString()}));\n      if(r.result.ok)slots.push([b(display(t),'book:'+a+':'+Math.floor(t/60000))]);\n    }\n    msg(names[a]+' — next-day availability\\n'+day+' · Dubai time\\n'+(slots.length?'Select a slot to confirm.':'No suitable slots available.'),kb(slots.concat([[b('Notify me of cancellations — I agree','wait:'+a+':'+day)],[b('Back to services','services')]])));\n  } else if(action==='book'&&s.services[a]&&/^\\d{8,10}$/.test(c||'')) replyResult(apply(event('book','reserve',{serviceId:a,start:new Date(Number(c)*60000).toISOString()})));\n  else if(action==='wait'&&s.services[a]&&/^\\d{4}-\\d\\d-\\d\\d$/.test(c||'')){\n    replyResult(apply(event('wait','join_waitlist',{serviceId:a,earliest:c+'T05:00:00Z',latest:c+'T17:00:00Z',consent:true})));\n    offerOpenWindows();\n  } else if(command==='mine'){\n    const bookings=s.bookings.filter(x=>x.customerId===uid&&x.status==='confirmed'&&x.startMs>now).slice(0,10);\n    if(!bookings.length)msg('No upcoming appointments.');\n    for(const booking of bookings)msg(names[booking.serviceId]+'\\n'+display(booking.startMs)+'\\nQuote: AED '+booking.quotedAed,kb([[b('Cancel this appointment','cancel:'+booking.id)],[b('Main menu','menu')]]));\n  } else if(action==='cancel'&&a){replyResult(apply(event('cancel','cancel',{bookingId:a})));offerOpenWindows();}\n  else if(action==='accept'&&a)replyResult(apply(event('claim','claim_offer',{offerId:a})));\n  else if(action==='decline'&&a){replyResult(apply(event('decline','decline_offer',{offerId:a})));offerOpenWindows();}\n  else if(command==='stop'){replyResult(apply(event('stop','withdraw_consent')));offerOpenWindows();}\n  else msg('Please use the buttons below. I only handle detailing appointments — not payments or general chat.');\n  if(ctx.source!=='timer')s.handledUpdates.push(key);\n  // Bounded, reviewable delivery intent; no blind resend on Telegram timeout.\n  s.deliveryIntents=s.deliveryIntents||[];\n  for(let i=0;i<messages.length;i++){\n    const m=messages[i];\n    // A native fixed keyboard is editable and preserved by n8n's Telegram node.\n    // Paginate variable-length slot lists instead of using an unsupported whole-collection expression.\n    let buttons=m.keyboard.rows.flatMap(row=>row.row.buttons);\n    if(buttons.length>4){\n      const page={id:key+'m'+i,owner:m.chatId,text:m.text,buttons,expiresMs:now+15*60000};\n      s.uiPages.push(page);s.uiPages=s.uiPages.slice(-20);\n      buttons=[...buttons.slice(0,2),b('Main menu','menu'),b('Next options','page:'+page.id+':1')];\n      m.text+='\\nOptions 1/'+Math.ceil(page.buttons.length/2);\n    }\n    for(const fallback of [b('Main menu','menu'),b('My appointments','mine'),b('Choose service','services'),b('Stop offers','stop')])if(buttons.length<4&&!buttons.some(x=>x.additionalFields.callback_data===fallback.additionalFields.callback_data))buttons.push(fallback);\n    while(buttons.length<4)buttons.push(b('Main menu','menu'));\n    m.buttons=buttons;m.keyboard=kb([buttons.slice(0,2),buttons.slice(2,4)]);\n    for(const row of m.keyboard.rows)for(const button of row.row.buttons){const data=button.additionalFields.callback_data;if(/[^\\x00-\\x7F]/.test(data)||data.length>64)throw new Error('INVALID_CALLBACK_DATA');}\n    s.deliveryIntents.push({key:key+'_'+i,chatId:m.chatId,status:ctx.source==='test'?'not_sent_test':'prepared_delivery_not_verified',at:ctx.now});\n  }\n  if(s.deliveryIntents.length>5000) throw new Error('DELIVERY_RETENTION_REQUIRED');\n  return {state:s,messages,code,replayed:false};\n}\n\nconst rows=$input.all().map(x=>x.json);if(rows.length!==1||!rows[0].state_json)throw new Error('EXPECTED_ONE_STATE_ROW');const row=rows[0];const ctx=$('Private test settings').first().json;const result=handleBot(JSON.parse(row.state_json),ctx);if(result.noChange)return [];return [{json:{rowId:row.id,expectedRevision:row.revision,nextRevision:row.revision+1,commitToken:'exec_'+$execution.id,stateJson:JSON.stringify(result.state),messages:result.messages,resultCode:result.code,source:ctx.source,deliveryEnabled:ctx.deliveryEnabled,allowedUserId:ctx.allowedUserId}}];"
+      },
+      "notes": "Pure deterministic service/bay capacity checks, appointment ownership, explicit waitlist consent, FIFO-compatible matching, holds, expiry, deduplication and paginated Telegram menus. No LLM and no network calls.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_13",
+      "name": "Commit only if revision unchanged",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        180
+      ],
+      "parameters": {
+        "resource": "row",
+        "operation": "update",
+        "dataTableId": {
+          "__rl": true,
+          "value": "REPLACE_WITH_DATA_TABLE_ID",
+          "mode": "id"
+        },
+        "matchType": "allConditions",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.rowId }}"
+            },
+            {
+              "keyName": "revision",
+              "condition": "eq",
+              "keyValue": "={{ $json.expectedRevision }}"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "revision": "={{ $json.nextRevision }}",
+            "commit_token": "={{ $json.commitToken }}",
+            "state_json": "={{ $json.stateJson }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "scope",
+              "displayName": "scope",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "revision",
+              "displayName": "revision",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "commit_token",
+              "displayName": "commit_token",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "state_json",
+              "displayName": "state_json",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "alwaysOutputData": true,
+      "notes": "Writes the next state only when both row ID and expected revision still match. This is a conditional state update, not an unconditional overwrite.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_14",
+      "name": "Our commit succeeded",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1400,
+        180
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Our commit succeeded",
+              "leftValue": "={{ $json.commit_token === $(\"Availability + booking rules\").first().json.commitToken && $json.revision === $(\"Availability + booking rules\").first().json.nextRevision }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "notes": "Verifies the returned revision and execution-specific commit token before any success message can be sent. Production concurrency stress testing remains a separate gate.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_15",
+      "name": "Verified delivery context",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        180
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "messages",
+              "name": "messages",
+              "value": "={{ $(\"Availability + booking rules\").first().json.messages }}",
+              "type": "array"
+            },
+            {
+              "id": "deliveryEnabled",
+              "name": "deliveryEnabled",
+              "value": "={{ $(\"Availability + booking rules\").first().json.deliveryEnabled }}",
+              "type": "boolean"
+            },
+            {
+              "id": "source",
+              "name": "source",
+              "value": "={{ $(\"Availability + booking rules\").first().json.source }}",
+              "type": "string"
+            },
+            {
+              "id": "allowedUserId",
+              "name": "allowedUserId",
+              "value": "={{ $(\"Availability + booking rules\").first().json.allowedUserId }}",
+              "type": "string"
+            },
+            {
+              "id": "resultCode",
+              "name": "resultCode",
+              "value": "={{ $(\"Availability + booking rules\").first().json.resultCode }}",
+              "type": "string"
+            },
+            {
+              "id": "revision",
+              "name": "revision",
+              "value": "={{ $json.revision }}",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "notes": "Restores the prepared messages and trusted routing context only after the state commit was verified.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_16",
+      "name": "Messages to send",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1800,
+        180
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Messages to send",
+              "leftValue": "={{ $json.messages.length > 0 }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "notes": "Routes nonempty message batches to delivery. Silent expiry or synthetic storage checks finish without Telegram calls.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_17",
+      "name": "One recipient per message",
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        1800,
+        420
+      ],
+      "parameters": {
+        "fieldToSplitOut": "messages",
+        "include": "allOtherFields",
+        "options": {}
+      },
+      "notes": "Splits prepared replies and targeted offers into individual recipient items. This is not a subscriber broadcast.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_18",
+      "name": "Live delivery and tester allowlist",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1600,
+        420
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "Live delivery and tester allowlist",
+              "leftValue": "={{ $json.deliveryEnabled === true && String($json.messages.chatId) === $json.allowedUserId && $json.source !== \"test\" }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "notes": "A second delivery gate checks the live switch, recipient allowlist and non-synthetic source before Telegram sendMessage.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_19",
+      "name": "Telegram — reply with inline buttons",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1400,
+        420
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendMessage",
+        "chatId": "={{ $json.messages.chatId }}",
+        "text": "={{ $json.messages.text }}",
+        "replyMarkup": "inlineKeyboard",
+        "inlineKeyboard": {
+          "rows": [
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.messages.buttons[0].text }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.messages.buttons[0].additionalFields.callback_data }}"
+                    }
+                  },
+                  {
+                    "text": "={{ $json.messages.buttons[1].text }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.messages.buttons[1].additionalFields.callback_data }}"
+                    }
+                  }
+                ]
+              }
+            },
+            {
+              "row": {
+                "buttons": [
+                  {
+                    "text": "={{ $json.messages.buttons[2].text }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.messages.buttons[2].additionalFields.callback_data }}"
+                    }
+                  },
+                  {
+                    "text": "={{ $json.messages.buttons[3].text }}",
+                    "additionalFields": {
+                      "callback_data": "={{ $json.messages.buttons[3].additionalFields.callback_data }}"
+                    }
+                  }
+                ]
+              }
+            }
+          ]
+        },
+        "additionalFields": {
+          "appendAttribution": false,
+          "parse_mode": "HTML",
+          "disable_web_page_preview": true
+        }
+      },
+      "notes": "Uses the native Telegram credential to send a message with four native inline buttons. Each label and callback has its own expression; variable menus use short pages.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_20",
+      "name": "Preview only — nothing sent",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1600,
+        600
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "NOT_SENT_DELIVERY_DISABLED",
+              "type": "string"
+            },
+            {
+              "id": "message",
+              "name": "message",
+              "value": "={{ $json.messages }}",
+              "type": "object"
+            },
+            {
+              "id": "revision",
+              "name": "revision",
+              "value": "={{ $json.revision }}",
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "notes": "Produces a readable preview when live delivery is disabled or the recipient is not allowlisted. Does not send messages.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_21",
+      "name": "Storage smoke test PASSED",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1800,
+        600
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "={{ $json.source === \"test\" ? \"STORAGE_ROUNDTRIP_PASSED\" : \"COMMITTED_NO_MESSAGES\" }}",
+              "type": "string"
+            },
+            {
+              "id": "resultCode",
+              "name": "resultCode",
+              "value": "={{ $json.resultCode }}",
+              "type": "string"
+            },
+            {
+              "id": "revision",
+              "name": "revision",
+              "value": "={{ $json.revision }}",
+              "type": "number"
+            },
+            {
+              "id": "messagesSent",
+              "name": "messagesSent",
+              "value": 0,
+              "type": "number"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "notes": "Reports a verified state roundtrip and zero messages sent for the manual synthetic storage branch.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_22",
+      "name": "No confirmation after storage conflict",
+      "type": "n8n-nodes-base.stopAndError",
+      "typeVersion": 1,
+      "position": [
+        1200,
+        420
+      ],
+      "parameters": {
+        "errorMessage": "State changed during this request. Nothing was confirmed or sent. Reload state before retrying."
+      },
+      "notes": "Stops on a failed/ambiguous conditional commit. No false booking confirmation is emitted; reloading and a controlled retry are required.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_23",
+      "name": "Ignore non-test users",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        400,
+        420
+      ],
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "status",
+              "name": "status",
+              "value": "IGNORED_NOT_AUTHORIZED",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": false,
+        "options": {}
+      },
+      "notes": "Ends non-authorized/private-chat requests without a reply or state change.",
+      "notesInFlow": false
+    },
+    {
+      "id": "bg_live_24",
+      "name": "01 — actual channel",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -80,
+        -270
+      ],
+      "parameters": {
+        "content": "## 01 / INTAKE & IDENTITY\nTelegram messages + inline buttons.\nOwner-only private test; configure your tester ID.\nDelivery OFF by default. Separate manual check and timer.",
+        "width": 620,
+        "height": 190,
+        "color": 5
+      }
+    },
+    {
+      "id": "bg_live_25",
+      "name": "02 — durable state",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        590,
+        -270
+      ],
+      "parameters": {
+        "content": "## 02 / RESERVE BEFORE CONFIRMING\nService duration · bay capability · consent · exclusive holds.\nRead state → deterministic rules → conditional commit → verify.\nNormal offer lifetime: 10 minutes. Expiry scheduler OFF.",
+        "width": 710,
+        "height": 190,
+        "color": 4
+      }
+    },
+    {
+      "id": "bg_live_26",
+      "name": "03 — operational boundary",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        1350,
+        -270
+      ],
+      "parameters": {
+        "content": "## 03 / TARGETED RECOVERY, NOT A BROADCAST\nOne opening → one eligible customer → one private offer.\nQuote value ≠ collected revenue. No payment integration.\nIndependent engineering prototype; hardening required.",
+        "width": 640,
+        "height": 190,
+        "color": 6
+      }
+    }
+  ],
+  "connections": {
+    "Telegram — messages and buttons": {
+      "main": [
+        [
+          {
+            "node": "Telegram identity",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manual — storage smoke test": {
+      "main": [
+        [
+          {
+            "node": "Synthetic event — NO messages",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Every minute — expire offers": {
+      "main": [
+        [
+          {
+            "node": "Trusted expiry event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Telegram identity": {
+      "main": [
+        [
+          {
+            "node": "Private test settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Synthetic event — NO messages": {
+      "main": [
+        [
+          {
+            "node": "Private test settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Trusted expiry event": {
+      "main": [
+        [
+          {
+            "node": "Private test settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Private test settings": {
+      "main": [
+        [
+          {
+            "node": "Private tester only",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Private tester only": {
+      "main": [
+        [
+          {
+            "node": "Read appointment state",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Button needs acknowledgement",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Ignore non-test users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Button needs acknowledgement": {
+      "main": [
+        [
+          {
+            "node": "Telegram — acknowledge button",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read appointment state": {
+      "main": [
+        [
+          {
+            "node": "Availability + booking rules",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Availability + booking rules": {
+      "main": [
+        [
+          {
+            "node": "Commit only if revision unchanged",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Commit only if revision unchanged": {
+      "main": [
+        [
+          {
+            "node": "Our commit succeeded",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Our commit succeeded": {
+      "main": [
+        [
+          {
+            "node": "Verified delivery context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "No confirmation after storage conflict",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Verified delivery context": {
+      "main": [
+        [
+          {
+            "node": "Messages to send",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Messages to send": {
+      "main": [
+        [
+          {
+            "node": "One recipient per message",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Storage smoke test PASSED",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "One recipient per message": {
+      "main": [
+        [
+          {
+            "node": "Live delivery and tester allowlist",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Live delivery and tester allowlist": {
+      "main": [
+        [
+          {
+            "node": "Telegram — reply with inline buttons",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Preview only — nothing sent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "timezone": "Asia/Dubai"
+  },
+  "active": false,
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}
