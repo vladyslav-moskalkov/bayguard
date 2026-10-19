@@ -1,0 +1,13 @@
+{
+  "name": "bayguard",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Deterministic n8n + Telegram appointment and cancellation recovery prototype",
+  "type": "module",
+  "engines": {"node": ">=22"},
+  "scripts": {
+    "build": "node build_workflow.mjs && node build_bot.mjs && node scripts/package.mjs",
+    "test": "npm run build && node scripts/validate.mjs",
+    "check": "node scripts/validate.mjs"
+  }
+}

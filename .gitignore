@@ -1,0 +1,10 @@
+node_modules/
+output/
+.env
+.env.*
+!.env.example
+.DS_Store
+*.log
+*credentials*.json
+*execution*.json
+private-exports/
