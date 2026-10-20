@@ -41,7 +41,7 @@ Node.js **22+**, npm, no third-party dependencies and no API credentials needed:
 npm test
 ```
 
-This rebuilds both JSON workflows, runs **41 kernel + 33 adapter assertions**, then validates import structure, node references, compiled Code-node behavior, safe defaults and reproducible output. `npm run check` validates committed artifacts without rebuilding them. Generated temporary results are ignored in `output/`.
+This rebuilds both JSON workflows, runs **41 kernel + 33 adapter assertions**, then validates import structure, node references, compiled Code-node behavior, safe defaults and reproducible output. `npm run check` validates committed artifacts and verifies they match a deterministic rebuild. Generated temporary results are ignored in `output/`.
 
 ## Import into n8n
 
