@@ -1,0 +1,5 @@
+{
+  "kernelAssertions": 41,
+  "adapterAssertions": 33,
+  "scope": "Reproducible synthetic offline checks. Private live testing is described separately in docs/validation.md."
+}
